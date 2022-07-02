@@ -12,12 +12,19 @@ import os
 import time
 import pandas as pd
 import numpy as np
+from pre_data_process import PreProcess
+from model import GA
 
 def run(dir_path):
     dir_path = dir_path + '\\input\\企业数字化-数字化车间智能排产调度挑战赛公开数据\\'
-    product_info = pd.read_csv(dir_path+'产品信息.csv')
-    process_flow = pd.read_csv(dir_path+'工艺路线.csv')
-    equ_info = pd.read_csv(dir_path+'设备信息.csv')
+    product_info = pd.read_csv(dir_path+'产品信息.csv',encoding='utf8')
+    process_flow = pd.read_csv(dir_path+'工艺路线.csv',encoding='gbk')
+    equ_info = pd.read_csv(dir_path+'设备信息.csv',encoding='gbk')
+
+    instance = PreProcess(product_info,process_flow,equ_info)
+    model = GA(instance)
+    model.solver()
+
     print("success!")
 
 
