@@ -27,6 +27,8 @@ class ProcessFlow:
         self.time = time
         self.unit = unit
         self.ready_time = ready_time
+        self.before_node = -1    # 前一个节点
+        self.after_node = -1     # 后一个节点
 
 
     def __str__(self):

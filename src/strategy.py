@@ -43,8 +43,10 @@ class Strategy:
         random.shuffle(job_list)    # 1.随机选择job安排
         for id in job_list:
             product_obj = instance.product_dict[id]
+            j = 1      # 工序号
             for operation in instance.process_flow_dict[product_obj.route_id]:  # 按照工艺顺序计划，不会违背优先级
-                operatio_select[i] = id        # 同一产品，按照工艺流程顺序安排
+                operatio_select[i] = id +"-"+ str(j)       # 同一产品，按照工艺流程顺序安排
+                j += 1
                 operation_available_machines = instance.equ_dict[operation.equ_type]
                 # find shortest time process machine
                 machine_id = random.randint(1,len(operation_available_machines)+1)    # 随机选择,记得 减一取值

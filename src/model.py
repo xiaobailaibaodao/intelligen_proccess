@@ -10,6 +10,7 @@ Create on 2022/6/28 17:37
 from strategy import Strategy
 
 import random
+import re
 
 random.seed(1)
 
@@ -77,5 +78,44 @@ class GA:
 
     def decoding_MSOS(self,chrom):
         # decoding msos chromosome to a feasible and active schedule
+        assigned_route_no = []     # 已经安排的工艺id 集合
+        while len(assigned_route_no) < len(chrom[1]):
+            for i in range(len(chrom[1])):
+                product,route_no = chrom[1][i].split('-')
+                if chrom[1][i] in assigned_route_no:       # todo 会不会检查太多次
+                    continue
+
+                operation = self.instance.process_flow_dict[self.instance.product_dict[product].route_id][int(route_no)-1]
+                if operation.before_node == -1 or (product + '-' + (operation.before_node-1)) in assigned_route_no:
+                    # precedence node assigned
+                    mached_machine = self.instance.equ_dict[operation.equ_type][chrom[0][i]-1]
+
+
+    def set_start_process_time(self,mached_machine,operation,operation_no):
+        '''
+        :param mached_machine: 匹配机器设备
+        :param operation: 工序
+        :param operation_no: 产品+工序号
+        :return:
+        '''
+        # 赋值每个工序公式时间区间
+        time_list = re.findall(r'\d+\.?\d*', operation.time)
+        if operation.name == '工序B':
+            process_time = int(time_list[0])  # todo 假设都无其它因素干扰，选择最短时间
+
+        else:
+            process_time = int(time_list[0]) * 60
+
+        # todo 考虑特殊工序B的情况
+        if len(mached_machine.processe_operatios) == 0:
+            mached_machine.processe_operatios.append(operation_no)
+            start_time = 0
+            special_operation_type = False
+
+
+    def check_if_add_ready_time(self):
+        # 检查是否增加工序B对应设备准备时间
+        # 1.产品工序中第一次出现B
+        # 2.当前产品存在多次B，当
         pass
 

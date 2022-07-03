@@ -18,7 +18,7 @@ class PreProcess:
     def __init__(self,product_info,process_flow,equ_info):
         self.unassign_product,self.product_dict = self.deal_product_info(product_info)
         self.process_flow_dict = self.deal_process_flow(process_flow)
-        self.equ_dict = self.deal_equ_info(equ_info)
+        self.equ_dict,self.equ_name_2_info = self.deal_equ_info(equ_info)
         self.equ_num = len(equ_info)    # 设备数量
         self.product_num = len(self.unassign_product)   # 产品数量
 
@@ -43,6 +43,14 @@ class PreProcess:
                 pf = ProcessFlow(id,row['route_No'],row['name'],row['equ_type'],row['time'],row['unit'],row['ready_time'])
                 process_flow_dict.setdefault(id,[]).append(pf)
             process_flow_dict[id].sort()
+            # 更新节点信息
+            for i in range(len(process_flow_dict[id])-1):
+                if i == 0:
+                    process_flow_dict[id][i].after_node = process_flow_dict[id][i+1].route_no
+                else:
+                    process_flow_dict[id][i].after_node = process_flow_dict[id][i+1].route_no
+                    process_flow_dict[id][i].before_node = process_flow_dict[id][i-1].route_no
+            process_flow_dict[id][len(process_flow_dict[id])-1].before_node = process_flow_dict[id][len(process_flow_dict[id])-2].route_no
         print("deal process flow finished")
         return process_flow_dict
 
@@ -50,8 +58,10 @@ class PreProcess:
     def deal_equ_info(self,equ_info):
 
         equ_dict = {}
+        equ_name_2_info = {}
         for index,row in equ_info.iterrows():
             e = Equ(row['equ_name'],row['equ_type'],row['unit'])
             equ_dict.setdefault(row['equ_type'],[]).append(e)
+            equ_name_2_info[row['equ_name']] = e
         print("deal equ info finished")
-        return equ_dict
+        return equ_dict,equ_name_2_info
