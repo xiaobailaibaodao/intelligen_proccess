@@ -27,5 +27,12 @@ class ProcessPlan:
         self.end = end
 
 
-
+class PlanIndividual:
+    '''
+    记录每个中间个体的计划安排情况
+    '''
+    def __init__(self):
+        self.machine_operations = []
+        self.machine_process_time = {}
+        self.assigned_product = []
 

@@ -17,7 +17,7 @@ class PreProcess:
 
     def __init__(self,product_info,process_flow,equ_info):
         self.unassign_product,self.product_dict = self.deal_product_info(product_info)
-        self.process_flow_dict = self.deal_process_flow(process_flow)
+        self.process_flow_dict,self.route_flow_first_B = self.deal_process_flow(process_flow)
         self.equ_dict,self.equ_name_2_info = self.deal_equ_info(equ_info)
         self.equ_num = len(equ_info)    # 设备数量
         self.product_num = len(self.unassign_product)   # 产品数量
@@ -38,9 +38,14 @@ class PreProcess:
     def deal_process_flow(self,process_flow):
 
         process_flow_dict = {}
+        route_flow_first_B = {}    # 每个工艺流程中第一次出现工序B
         for id,temp in process_flow.groupby('route_id'):
+            first_b = False
             for index,row in temp.iterrows():
                 pf = ProcessFlow(id,row['route_No'],row['name'],row['equ_type'],row['time'],row['unit'],row['ready_time'])
+                if not first_b and pf.name == '工序B':
+                    route_flow_first_B[id] = pf.route_no
+                    first_b = True
                 process_flow_dict.setdefault(id,[]).append(pf)
             process_flow_dict[id].sort()
             # 更新节点信息
@@ -52,7 +57,7 @@ class PreProcess:
                     process_flow_dict[id][i].before_node = process_flow_dict[id][i-1].route_no
             process_flow_dict[id][len(process_flow_dict[id])-1].before_node = process_flow_dict[id][len(process_flow_dict[id])-2].route_no
         print("deal process flow finished")
-        return process_flow_dict
+        return process_flow_dict,route_flow_first_B
 
 
     def deal_equ_info(self,equ_info):

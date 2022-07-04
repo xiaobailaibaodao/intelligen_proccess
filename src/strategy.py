@@ -37,7 +37,7 @@ class Strategy:
 
     @classmethod
     def random_selection_init(cls,instance,process_time_list,machine_select,operatio_select):
-        print("random select machine")
+        # print("random select machine")
         job_list = instance.unassign_product
         i = 0    # 工序 匹配 机器 的索引对应
         random.shuffle(job_list)    # 1.随机选择job安排
@@ -49,7 +49,7 @@ class Strategy:
                 j += 1
                 operation_available_machines = instance.equ_dict[operation.equ_type]
                 # find shortest time process machine
-                machine_id = random.randint(1,len(operation_available_machines)+1)    # 随机选择,记得 减一取值
+                machine_id = random.randint(1,len(operation_available_machines))    # 随机选择,记得 减一取值
                 machine_select[i] = machine_id
                 i += 1
 
