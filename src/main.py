@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 from pre_data_process import PreProcess
 from model import GA
+from result import Result
 
 def run(dir_path):
     dir_path = dir_path + '\\input\\企业数字化-数字化车间智能排产调度挑战赛公开数据\\'
@@ -25,6 +26,9 @@ def run(dir_path):
     model = GA(instance)
     model.solver()
 
+    # --------结果格式化---------
+    algo_result = Result(model)
+    algo_result.format_algo_best_result('../output/调度结果.csv')
     print("success!")
 
 

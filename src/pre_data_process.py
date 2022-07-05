@@ -25,6 +25,7 @@ class PreProcess:
 
     def deal_product_info(self,product_info):
         # 处理产品数据
+        # product_info = product_info[product_info['product_id']=='P202201101']
         unassign_product = []
         product_dict = {}
         for index,row in product_info.iterrows():
