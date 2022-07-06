@@ -161,8 +161,15 @@ class GA:
             print("决策开始时间有问题.....")
             exit(0)
 
-        assigned_product[prop_id][0] = operation_start_process_time
-        assigned_product[prop_id][1] = operation_start_process_time + process_time
+        # todo 如果是工序B，同时更新两个工序开始时间；否则，更新一个工序时间
+        if special_option:
+            next_operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][operation.after_node - 1]
+            next_process_time = re.findall(r'\d+\.?\d*', next_operation.time)
+            after_position = chrom[1].index(after_operation_str)
+            assigned_product[product_no+'-'+str(operation.after_node)] = [operation_start_process_time,operation_start_process_time+float(next_process_time[0]*60),]
+        else:
+            assigned_product[prop_id][0] = operation_start_process_time
+            assigned_product[prop_id][1] = operation_start_process_time + process_time
 
 
     def check_if_add_ready_time(self,operation,product_no,special_option,mached_machine,assigned_product,assigned_machine):
@@ -253,16 +260,20 @@ class GA:
             else:
                 # 如果都不能匹配，安排在机器最后
                 machine_end_time = max(sort_time_machine[-1][1][1],before_operation_end_time)
-                # todo 这里是不是需要向后遍历寻找
+                if not self.check_current_start_c(operation,machine_end_time,product_no,next_operation_2_machine_situation):
+                    machine_end_time = next_operation_2_machine_situation[-1][1][1]
         return machine_end_time
 
 
     def operation_c_machine_situation(self,product_no,operation_B,chrom,assigned_product,assigned_machine):
         # 工序C对应机器使用情况
+        if operation_B.name != '工序B':
+            return True
+
         after_operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][operation_B.after_node - 1]
-        after_operation_str = product_no + '-' + operation_B.after_node
+        after_operation_str = product_no + '-' + str(operation_B.after_node)
         after_position = chrom[1].index(after_operation_str)
-        after_machine_matched = self.instance.equ_dict[after_operation.equ_type][after_position - 1]
+        after_machine_matched = self.instance.equ_dict[after_operation.equ_type][chrom[0][after_position] - 1]
 
         # 工序C匹配机器 尚未 使用
         if after_machine_matched.equ_name not in assigned_machine:
@@ -303,6 +314,7 @@ class GA:
         if next_operation_2_machine_situation[-1][1][1] <= pre_end_time:
             return True
 
+        return False
 
 
 
