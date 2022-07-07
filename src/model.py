@@ -112,7 +112,7 @@ class GA:
                     assigned_machine.setdefault(mached_machine.equ_name,[]).append(chrom[1][i])
 
                     # 决策该工序加工时间
-                    self.set_start_process_time(mached_machine,operation,product,assigned_product,assigned_machine,chrom[1][i],chrom)
+                    self.set_start_process_time(mached_machine,operation,product,assigned_product,assigned_machine,chrom[1][i],chrom,assigned_route_no)
         # print("所有产品加工完成")
 
         # 计算全部机器最长加工时间,以及工序C在对应设备上的 累计 加工时间
@@ -133,7 +133,7 @@ class GA:
         return c_process_time,finish_time
 
 
-    def set_start_process_time(self,mached_machine,operation,product_no,assigned_product,assigned_machine,prop_id,chrom):
+    def set_start_process_time(self,mached_machine,operation,product_no,assigned_product,assigned_machine,prop_id,chrom,assigned_route_no):
         '''
         :param mached_machine: 匹配机器设备
         :param operation: 工序
@@ -142,34 +142,37 @@ class GA:
         :return:
         '''
         # 赋值每个工序公式时间区间
-        time_list = re.findall(r'\d+\.?\d*', operation.time)
         special_option = False
         if operation.name == '工序B':
-            process_time = float(time_list[0])  # todo 假设都无其它因素干扰，选择最短时间
+            process_time = operation.get_process_time(self.instance.product_dict[product_no].product_num)
             special_option = True
         else:
-            # todo 工序如果是节 则需要调整计算方式
-            process_time = float(time_list[0]) * 60
+            process_time = operation.get_process_time(self.instance.product_dict[product_no].product_num)
 
         # 更新加工时间
         if special_option and self.check_if_add_ready_time(operation,product_no,special_option,mached_machine,assigned_product,assigned_machine):
             ready_time_list = re.findall(r'\d+\.?\d*', operation.ready_time)
             process_time = process_time + float(ready_time_list[0])*60
 
+        # print("当前处理工序: ",product_no+'-'+str(operation.route_no))
         operation_start_process_time = self.decision_start_time_node(operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom)
         if operation_start_process_time == -1:
             print("决策开始时间有问题.....")
             exit(0)
 
-        # todo 如果是工序B，同时更新两个工序开始时间；否则，更新一个工序时间
+        # 如果是工序B，同时更新两个工序开始时间；否则，更新一个工序时间
         if special_option:
             next_operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][operation.after_node - 1]
-            next_process_time = re.findall(r'\d+\.?\d*', next_operation.time)
-            after_position = chrom[1].index(after_operation_str)
-            assigned_product[product_no+'-'+str(operation.after_node)] = [operation_start_process_time,operation_start_process_time+float(next_process_time[0]*60),]
-        else:
-            assigned_product[prop_id][0] = operation_start_process_time
-            assigned_product[prop_id][1] = operation_start_process_time + process_time
+            next_process_time = next_operation.get_process_time(self.instance.product_dict[product_no].product_num)
+            next_position = chrom[1].index(product_no+'-'+str(next_operation.route_no))
+            # 选择机器
+            next_mached_machine = self.instance.equ_dict[next_operation.equ_type][chrom[0][next_position]-1]
+            assigned_product[product_no+'-'+str(operation.after_node)] = [operation_start_process_time+process_time,operation_start_process_time+process_time+next_process_time,next_mached_machine.equ_name]
+            assigned_machine.setdefault(next_mached_machine.equ_name, []).append(product_no+'-'+str(next_operation.route_no))
+            assigned_route_no.append(product_no+'-'+str(operation.after_node))
+
+        assigned_product[prop_id][0] = operation_start_process_time
+        assigned_product[prop_id][1] = operation_start_process_time + process_time
 
 
     def check_if_add_ready_time(self,operation,product_no,special_option,mached_machine,assigned_product,assigned_machine):
@@ -218,7 +221,7 @@ class GA:
         if operation.before_node == -1:
             before_operation_end_time = 0
         else:
-            before_operation_end_time = assigned_product[product_no+'-'+str(operation.before_node)][1]
+            before_operation_end_time = assigned_product[product_no + '-' + str(operation.before_node)][1]
 
         # 2.判断分配机器可用时间
         machine_end_time = -1
@@ -302,8 +305,7 @@ class GA:
         if after_operation.name != '工序C':
             return True
 
-        time_list = re.findall(r'\d+\.?\d*', after_operation.time)
-        duration_t = float(time_list[0])*60
+        duration_t = after_operation.get_process_time(self.instance.product_dict[product_no].product_num)
 
         for i in range(len(next_operation_2_machine_situation)):
             if i == 0 and next_operation_2_machine_situation[i][1][0] >= pre_end_time + duration_t:

@@ -7,6 +7,7 @@ Create on 2022/6/24 16:52
 @description: 工艺流程
 '''
 
+import re
 
 class ProcessFlow:
 
@@ -25,6 +26,7 @@ class ProcessFlow:
         self.name = name
         self.equ_type = equ_type
         self.time = time
+        self.process_duration = list(map(float,re.findall(r'\d+\.?\d*', self.time)))
         self.unit = unit
         self.ready_time = ready_time
         self.before_node = -1    # 前一个节点
@@ -43,3 +45,14 @@ class ProcessFlow:
     #     # 单纯与上面函数取反，不定义也可
     #     return self.route_no > other
 
+
+    def get_process_time(self,product_num):
+        '''
+        :param product_num: 节数量
+        :return: 加工时长(根据传进来节数量，可小于产品要求值)
+        '''
+        if self.unit == '批' and self.name == '工序B':
+            return self.process_duration[0]
+        if self.unit == '批' and self.name != '工序B':
+            return self.process_duration[0] * 60
+        return product_num*self.process_duration[0]*60

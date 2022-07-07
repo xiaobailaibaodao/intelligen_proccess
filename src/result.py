@@ -40,9 +40,9 @@ class Result:
         submit_df = pd.DataFrame(submit_info_list,columns=['product_id','route_No','equ_name','start','duration','end'])
 
         # ------------结果约束检查-----------
-        print("开始结果约束检查: ")
-        self.draw_gantt_chart(submit_df)
-        print("结果约束检查结束")
+        # print("开始结果约束检查: ")
+        # self.draw_gantt_chart(submit_df)
+        # print("结果约束检查结束")
 
         submit_df.to_csv(save_path,encoding='utf8',index=False)
         # print("success!")
@@ -50,9 +50,11 @@ class Result:
 
     def check_result_constrained(self,submit_df):
         # 检查结果是否满足各项约束
-        # 约束一：每个产品是否满足 紧前工序完成后 才能开始后续工序
-        # 约束二：同一台机器同一时间只能加工一个工序
-        # 约束三：工序B结束后 是否 立即开始 工序C
+        # 约束一：每个设备同时只能加工某种产品的某个工序，一旦开始不能终端
+        # 约束二：产品加工顺序严格按照工艺流程，上一道工序完成后，才能开始下道工序
+        # 约束三：每个工序同时只能在一个设备上加工
+        # 约束四：工序B结束后 是否 立即开始 工序C
+        # 约束五：以节为单位的工序，必须连续加工
         pass
 
 
