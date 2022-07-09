@@ -26,7 +26,7 @@ class GA:
         self.best_assigned_product = {}
         self.best_assigned_machine = {}
 
-        self.population_size = 100
+        self.population_size = 1
         self.max_iteration = 100
         self.pc = 0.7     # crossover probability
         self.pm = 0.01    # mutation probability
@@ -154,6 +154,13 @@ class GA:
             ready_time_list = re.findall(r'\d+\.?\d*', operation.ready_time)
             process_time = process_time + float(ready_time_list[0])*60
 
+        if special_option:
+            # 工序B
+            pass
+        else:
+            # 非工序B
+            pass
+
         # print("当前处理工序: ",product_no+'-'+str(operation.route_no))
         operation_start_process_time = self.decision_start_time_node(operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom)
         if operation_start_process_time == -1:
@@ -217,16 +224,22 @@ class GA:
 
     def decision_start_time_node(self,operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom):
 
-        # 1.判断当前产品工序上一工序结束时间
+        # 1.判断 当前产品工序 上一工序结束时间
         if operation.before_node == -1:
             before_operation_end_time = 0
         else:
             before_operation_end_time = assigned_product[product_no + '-' + str(operation.before_node)][1]
 
-        # 2.判断分配机器可用时间
+        # 工序B下一个工序对应机器使用情况
+        next_operation_2_machine_situation = self.operation_c_machine_situation(product_no, operation, chrom,assigned_product, assigned_machine)
+
+        # 2.判断 当前工序 分配机器可用时间
         machine_end_time = -1
         if  len(assigned_machine[mached_machine.equ_name]) == 1:   # 匹配机器只有当前工序加工计划
-            machine_end_time = before_operation_end_time
+            if self.check_current_start_c(operation,before_operation_end_time+process_time,product_no,next_operation_2_machine_situation):
+                machine_end_time = before_operation_end_time
+            else:
+                machine_end_time = next_operation_2_machine_situation[-1][1][1]
         else:
             machine_time_dict = {}
             for o in assigned_machine[mached_machine.equ_name][:-1]:
@@ -247,31 +260,28 @@ class GA:
                 else:
                     end = s[1][1]
 
-            # 工序B下一个工序对应机器使用情况
-            next_operation_2_machine_situation = self.operation_c_machine_situation(product_no,operation,chrom,assigned_product,assigned_machine)
-
             # 匹配优先级(从高到低)：1.当前机器中第一个工序左边；2.中间；3.当前机器最后
-            if sort_time_machine[0][1][0] >= process_time and sort_time_machine[0][1][0] - process_time >= before_operation_end_time and \
-                    (next_operation_2_machine_situation == True or self.check_current_start_c(operation,before_operation_end_time,product_no,next_operation_2_machine_situation)):
+            if sort_time_machine[0][1][0] >= process_time and sort_time_machine[0][1][0] - process_time >= before_operation_end_time:
                 # 左边可以插入
                 machine_end_time = before_operation_end_time
             elif mid_mached:
                 # 中间可以插入
                 for end_time in mid_available_position:
-                    if next_operation_2_machine_situation == True or self.check_current_start_c(operation,end_time,product_no,next_operation_2_machine_situation):
+                    if next_operation_2_machine_situation == True or self.check_current_start_c(operation,end_time+process_time,product_no,next_operation_2_machine_situation):
                         return end_time
             else:
                 # 如果都不能匹配，安排在机器最后
                 machine_end_time = max(sort_time_machine[-1][1][1],before_operation_end_time)
-                if not self.check_current_start_c(operation,machine_end_time,product_no,next_operation_2_machine_situation):
-                    machine_end_time = next_operation_2_machine_situation[-1][1][1]
+                if not self.check_current_start_c(operation,machine_end_time+process_time,product_no,next_operation_2_machine_situation):
+                    machine_end_time = max(next_operation_2_machine_situation[-1][1][1],machine_end_time)
         return machine_end_time
 
 
     def operation_c_machine_situation(self,product_no,operation_B,chrom,assigned_product,assigned_machine):
         # 工序C对应机器使用情况
+        sort_time_machine = []
         if operation_B.name != '工序B':
-            return True
+            return sort_time_machine
 
         after_operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][operation_B.after_node - 1]
         after_operation_str = product_no + '-' + str(operation_B.after_node)
@@ -280,7 +290,7 @@ class GA:
 
         # 工序C匹配机器 尚未 使用
         if after_machine_matched.equ_name not in assigned_machine:
-            return True
+            return sort_time_machine
 
         # 工序C匹配机器 已经 使用
         c_finished_dict = {}
@@ -299,18 +309,21 @@ class GA:
         :return: true/false
         '''
         # 如果工序B于当前节点完成，是否可以立即执行工序C
-        if operation_B.after_node == -1:
+        if operation_B.after_node == -1 or operation_B.name != '工序B':
             return True
         after_operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][operation_B.after_node-1]
-        if after_operation.name != '工序C':
+        if operation_B.name == '工序B' and after_operation.name != '工序C':
+            print("当前工序B 的下一个工序 不是工序C")
             return True
-
+        # print("是否真是工序C: ",after_operation.name,product_no)
         duration_t = after_operation.get_process_time(self.instance.product_dict[product_no].product_num)
 
         for i in range(len(next_operation_2_machine_situation)):
             if i == 0 and next_operation_2_machine_situation[i][1][0] >= pre_end_time + duration_t:
                 return True
-            if next_operation_2_machine_situation[i][1][0] >= pre_end_time + duration_t and pre_end_time >= next_operation_2_machine_situation[i-1][1][1]:
+            # elif pre_end_time >= next_operation_2_machine_situation[i][1][0] and pre_end_time < next_operation_2_machine_situation[i][1][1]:
+            #     return False
+            elif i != 0 and next_operation_2_machine_situation[i-1][1][1] <= pre_end_time and next_operation_2_machine_situation[i][1][0] >= pre_end_time + duration_t:   # 只有在pre_end_time开始才符合要求
                 return True
         # 检查是否可以放到最后
         if next_operation_2_machine_situation[-1][1][1] <= pre_end_time:
