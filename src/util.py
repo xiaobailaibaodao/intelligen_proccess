@@ -45,3 +45,18 @@ def decision_B_start_time(self, instance, operation, product_no, mached_machine,
                     find_flag = True
                     break
 
+
+    def machine_available_time_list(self,sort_time_machine,operation_process_time,before_operation_end_time):
+        '''机器可用时间点集合'''
+        available_time_list = []
+        if len(sort_time_machine) == 0:
+            available_time_list.append([before_operation_end_time,np.inf])
+            return available_time_list
+        if sort_time_machine[0][1][0] - operation_process_time >= before_operation_end_time:
+            available_time_list.append([0,sort_time_machine[0][1][0]-operation_process_time-before_operation_end_time])
+        for i in range(1,len(sort_time_machine)):
+            if self.machine_process_or_not(sort_time_machine[i-1][1][1],sort_time_machine[i][1][0],operation_process_time,before_operation_end_time):
+                available_time_list.append([sort_time_machine[i-1][1][1],sort_time_machine[i][1][0]-operation_process_time])
+        available_time_list.append([sort_time_machine[-1][1][1],np.inf])
+        return available_time_list
+
