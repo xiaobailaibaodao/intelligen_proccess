@@ -26,7 +26,7 @@ class GA:
         self.best_assigned_product = {}
         self.best_assigned_machine = {}
 
-        self.population_size = 1
+        self.population_size = 100
         self.max_iteration = 100
         self.pc = 0.7     # crossover probability
         self.pm = 0.01    # mutation probability
@@ -112,7 +112,8 @@ class GA:
                     assigned_machine.setdefault(mached_machine.equ_name,[]).append(chrom[1][i])
 
                     # 决策该工序加工时间
-                    self.set_start_process_time(mached_machine,operation,product,assigned_product,assigned_machine,chrom[1][i],chrom,assigned_route_no)
+                    # self.set_start_process_time(mached_machine,operation,product,assigned_product,assigned_machine,chrom[1][i],chrom,assigned_route_no)
+                    operation.set_operation_process_time(self.instance,mached_machine,operation,assigned_product,assigned_machine,product + '-' + str(operation.route_no),chrom,assigned_route_no)
         # print("所有产品加工完成")
 
         # 计算全部机器最长加工时间,以及工序C在对应设备上的 累计 加工时间
@@ -154,12 +155,6 @@ class GA:
             ready_time_list = re.findall(r'\d+\.?\d*', operation.ready_time)
             process_time = process_time + float(ready_time_list[0])*60
 
-        if special_option:
-            # 工序B
-            pass
-        else:
-            # 非工序B
-            pass
 
         # print("当前处理工序: ",product_no+'-'+str(operation.route_no))
         operation_start_process_time = self.decision_start_time_node(operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom)
