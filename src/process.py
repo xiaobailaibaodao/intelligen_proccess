@@ -146,22 +146,17 @@ class ProcessFlow:
     def decision_B_start_time(self,instance,operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom,before_B_operation_end_time,assigned_route_no):
         '''决策B工序的加工开始时刻, 基本原来同上，只是需要同时考虑工序C加工'''
         # todo B工序加工时间是个范围主要是考虑到 完成后立即执行工序C，这个优化点
-
-        ready_time = 0     # 1.判断是否需要准备时间；2.判断插入位置是否满足 要求(可以提前准备);
-        if self.check_if_add_ready_time(instance,operation,product_no,mached_machine,assigned_product,assigned_machine):
-            ready_time = ready_time + 0.5*60
-
         after_operation = instance.process_flow_dict[instance.product_dict[product_no].route_id][operation.after_node - 1]
         C_process_time = after_operation.get_process_time(instance.product_dict[product_no].product_num)
         after_C_sort_time_machine,C_machine = self.operation_c_machine_situation(instance,product_no,operation,chrom,assigned_product,assigned_machine)
         machine_availabel_time = -1
         if len(assigned_machine[mached_machine.equ_name]) == 1:  # 工序B匹配机器只有当前工序加工计划,还未加工其它工艺
             if len(after_C_sort_time_machine) == 0:
-                machine_availabel_time = max(before_B_operation_end_time,ready_time)
+                machine_availabel_time = max(before_B_operation_end_time,0.5*60)
             else:
                 # 工序B分配机器未使用，因此只要工序C可以加工即可
                 machine_availabel_time = self.decision_operation_time_C(C_machine,before_B_operation_end_time+process_time,C_process_time,assigned_machine,after_C_sort_time_machine)
-                machine_availabel_time = max(machine_availabel_time - process_time,ready_time)
+                machine_availabel_time = max(machine_availabel_time - process_time,0.5*60)
         else:
             # todo 是在不行 改为粗暴遍历查找;(每个机器一个时间维度)
             B_sort_time_machine = self.machine_process_situation(assigned_machine, mached_machine, assigned_product)
@@ -175,10 +170,12 @@ class ProcessFlow:
                     continue
                 sub_b = [max(b[0],before_B_operation_end_time),b[1]]
                 b_end = list(map(lambda x:x+process_time,sub_b))    # 逻辑有点绕
+                ready_time = 0
                 for c in C_available_time_list:
                     if max(b_end[0],c[0]) <= min(b_end[1],c[1]):  # 有交集
                         machine_availabel_time = max(b_end[0],c[0]) - process_time
-
+                        if self.B_ready_time(instance,operation,product_no,mached_machine,assigned_product,assigned_machine,B_available_time_list,b[0],B_sort_time_machine):
+                            ready_time = 0.5*60
                         # todo (贪心)插入位置 后一个位置一定满足0.5h,前一个可以判断是否预留,这样才能不改变原有集合；这里可以细化一下
                         if ready_time + b[0] <= machine_availabel_time and machine_availabel_time+process_time+0.5*60 <= b[1]:
                             find_flag = True
@@ -216,21 +213,21 @@ class ProcessFlow:
         return available_time_list
 
 
-    def B_ready_time(self,B_available_time_list,start_point,sort_time_machine):
+    def B_ready_time(self,instance,operation,product_no,mached_machine,assigned_product,assigned_machine,B_available_time_list,start_point,sort_time_machine):
         # 判断是否增加准备时间(跟插入位置有关,插入位置的前一个工序)
         if len(B_available_time_list) == 1:
             return False
         if start_point == 0:
             return False
         machine_pre_operation = -1
-        for i in range(1, len(sort_time_machine)):
-            if sort_time_machine[i][1][0] == start_point:
-                machine_pre_operation = sort_time_machine[i-1][0]
+        for i in range(0, len(sort_time_machine)):
+            if sort_time_machine[i][1][1] == start_point:
+                machine_pre_operation = sort_time_machine[i][0]
                 break
         if machine_pre_operation == -1:
             print("搜寻机器前一个加工工序 报错")
             exit(1)
-
+        pre_product = machine_pre_operation.split('-')[0]
         if self.check_if_add_ready_time(instance,operation,product_no,mached_machine,assigned_product,assigned_machine,pre_product):
             return True
         return False
@@ -322,10 +319,7 @@ class ProcessFlow:
         :param product_first_operation: 是否第一道工序
         :return: true/false
         '''
-        # if special_option and operation.before_node == -1:
-        #     return True
 
-        # 特殊情况
         # 情况一：产品工序中第一次出现工序B
         first_b_route_no = instance.route_flow_first_B[instance.product_dict[product_no].route_id]
         if operation.route_no == first_b_route_no:
@@ -351,8 +345,8 @@ class ProcessFlow:
 
         # 情况三：当前机器加工的产品与当前机器上一次加工的产品不同
         if mached_machine.equ_name in assigned_machine and len(assigned_machine[mached_machine.equ_name]) >= 2:
-            pre_product = assigned_machine[mached_machine.equ_name][-2].split('-')    # 最后一个是当前判断工序
-            if product_no != pre_product[0]:
+            # pre_product = assigned_machine[mached_machine.equ_name][-2].split('-')    # 最后一个是当前判断工序
+            if product_no != pre_product:
                 # print("情况三  工序B {} 需要准备时间".format(product_no + '-' + str(operation.route_no)))
                 return True
 
