@@ -43,6 +43,7 @@ class Result:
         # print("开始结果约束检查: ")
         # self.draw_gantt_chart(submit_df)
         # print("结果约束检查结束")
+        self.check_result_constrained(submit_df)
 
         submit_df.to_csv(save_path,encoding='utf8',index=False)
         # print("success!")
@@ -50,12 +51,48 @@ class Result:
 
     def check_result_constrained(self,submit_df):
         # 检查结果是否满足各项约束
-        # 约束一：每个设备同时只能加工某种产品的某个工序，一旦开始不能终端
-        # 约束二：产品加工顺序严格按照工艺流程，上一道工序完成后，才能开始下道工序
+        # 约束一：每个设备同时只能加工某种产品的某个工序，一旦开始不能中断
+        for equ,temp in submit_df.groupby('equ_name'):
+            # print("检查机器: ",equ)
+            temp = temp.sort_values(by=['start'])
+            for i in range(1,len(temp)):
+                pre_end_time = temp.iloc[i-1]['end']
+                next_start_time = temp.iloc[i]['start']
+                if next_start_time < pre_end_time:
+                    print("此工序安排有问题: ",temp.iloc[i]['product_id'],temp.iloc[i]['route_No'])
+
+        for product,df in submit_df.groupby('product_id'):
+            # 约束二：产品加工顺序严格按照工艺流程，上一道工序完成后，才能开始下道工序
+            df = df.sort_values(by=['route_No'])
+            for i in range(1, len(df)):
+                pre_end_time = df.iloc[i - 1]['end']
+                next_start_time = df.iloc[i]['start']
+                if next_start_time < pre_end_time:
+                    print("违反约束二: ",df.iloc[i]['product_id'],df.iloc[i]['route_No'])
+
+                # 约束四：工序B结束后 是否 立即开始 工序C
+                for p in self.instance.process_flow_dict[self.instance.product_dict[df.iloc[i-1]['product_id']].route_id]:
+                    if p.route_no == df.iloc[i-1]['route_No'] and p.name == '工序B' and next_start_time != pre_end_time:
+                        print("违反约束四: ",df.iloc[i]['product_id'],df.iloc[i]['route_No'])
+
         # 约束三：每个工序同时只能在一个设备上加工
-        # 约束四：工序B结束后 是否 立即开始 工序C
         # 约束五：以节为单位的工序，必须连续加工
-        pass
+
+        # 约束六：工序B是否满足准备时间要求
+        # for product, df in submit_df.groupby('product_id'):
+        #     find_first = False
+        #     df = df.sort_values(by=['route_No'])
+        #     for i in range(1, len(df)):
+        #         pre_end_time = df.iloc[i - 1]['end']
+        #         next_start_time = df.iloc[i]['start']
+        #
+        #         for p in self.instance.process_flow_dict[self.instance.product_dict[df.iloc[i - 1]['product_id']].route_id]:
+        #             if p.name == '工序B' and not find_first:   # 该产品第一次出现工序B
+        #                 find_first = True
+        #                 machine_df = submit_df[submit_df['equ_name']==df.iloc[i]['equ_name']]
+        #                 machine_df = machine_df.sort_values(by=['start'])
+
+
 
 
     def draw_gantt_chart(self,submit_df):
