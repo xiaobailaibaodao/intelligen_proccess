@@ -12,7 +12,7 @@ from strategy import Strategy
 import random
 import re
 
-random.seed(1)
+# random.seed(1)
 
 class GA:
 
@@ -26,8 +26,10 @@ class GA:
         self.best_assigned_product = {}
         self.best_assigned_machine = {}
 
-        self.population_size = 1
+        self.population_size = 100
         self.max_iteration = 100
+        self.select_rate = 0.2
+        self.muta_size = 5
         self.pc = 0.7     # crossover probability
         self.pm = 0.01    # mutation probability
 
@@ -74,7 +76,24 @@ class GA:
 
     def algo_to_best_solution(self):
         # 迭代策略进行搜索
-        pass
+        iter = 1
+        while iter <= self.max_iteration:
+            # selection operator - tournament approach
+            mate_pool = Strategy.selection_operator(self.population,self.select_rate)
+
+            while len(mate_pool) < self.population_size:
+                if random.random() < self.pc:
+                    # crossover operator
+                    pass
+
+            if random.random() < self.pm:
+                # mutation operator
+                pass
+
+            # update self.population
+            # update best solution
+            pass
+
 
 
     def update_efficiency_value(self):
@@ -85,6 +104,7 @@ class GA:
             assigned_machine = {}  # 记录机器已经安排工序  {equ_name:[产品id-工序id....] }
             c_process_time, finish_time = self.decoding_MSOS(chrom,assigned_route_no,assigned_product,assigned_machine)
             eval_cost = c_process_time / finish_time
+            chrom.append(eval_cost)
             if eval_cost > self.best_obj:
                 self.best_obj = eval_cost
                 self.best_chrom = chrom
@@ -136,7 +156,6 @@ class GA:
         return c_process_time,finish_time
 
 
-    # todo 另一种思路解码尝试
 
 
 if __name__ == "__main__":

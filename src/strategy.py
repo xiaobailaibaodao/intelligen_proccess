@@ -6,8 +6,9 @@ Create on 2022/6/28 17:42
 
 @description: 策略集合
 '''
-import random
 
+import random
+import numpy as np
 
 class Strategy:
 
@@ -66,4 +67,45 @@ class Strategy:
         # todo 2.考虑设备负载均衡，后面可以优化一下设备初始化分配； 通过记录每个设备处理工序问题
         # 增加一个设备属性 或者 一个列表用来记录每种设备分配工序情况，选出最短用时
         return random.randint(1,len(available_machine_list)+1)
+
+
+    @classmethod
+    def selection_operator(cls,chrom,select_rate):
+        '''遗传算法 - 选择算子'''
+        mate_pool = []
+        while len(mate_pool) < int(select_rate*len(chrom)):
+            r_list = list(np.random.randint(low=0,hign=len(chrom),size=3))
+            local_best_obj = 0
+            local_best_index = 0
+            for r in r_list:
+                if chrom[r][2] > local_best_obj:
+                    local_best_obj = chrom[2]
+                    local_best_index = r
+            mate_pool.append(chrom[local_best_index])
+        return mate_pool
+
+
+    @classmethod
+    def crossover_operator(cls):
+        '''交叉算子'''
+        # Machine Selection part (MS两种) - two point crossover、uniform crossover
+        if random.random() < 0.5:
+            # two point crossover
+            pass
+        else:
+            # uniform crossover
+            pass
+        # Operation Sequence part(OS - POX)
+        pass
+
+
+    @classmethod
+    def mutation_operator(cls,mate_pool,muta_size):
+        '''
+        变异算子
+        :param mate_pool: 子代个体池
+        :param muta_size: 需要变异个体数
+        :return:
+        '''
+        pass
 

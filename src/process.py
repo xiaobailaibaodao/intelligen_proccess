@@ -233,8 +233,6 @@ class ProcessFlow:
         return False
 
 
-
-
     def machine_process_or_not(self,start,end,process_time,before_operation_end_time):
         '''判断机器相邻两个加工工序之间，是否可以插入当前工序'''
         if end - start < process_time:
