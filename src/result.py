@@ -100,11 +100,66 @@ class Result:
                         if obj.equ_name not in process_B_machine:
                             process_B_machine.append(obj.equ_name)
 
-        for equ,df in submit_df.groupby('equ_name'):
+        B_submit_df = submit_df[submit_df['equ_name'].isin(process_B_machine)]
+        for equ,df in B_submit_df.groupby('equ_name'):
+            if len(df) == 1: continue
             df = df.sort_values(by=['start'])
+            for i in range(1,len(df)):
+                if df.iloc[i]['start'] - df.iloc[i-1]['end'] < 0.5:
+                    # 检查第i个工序B是否需要准备时间，是否违反
+                    product_no = df.iloc[i]['product_id']
+                    route_no = df.iloc[i]['route_No']
+                    operation = self.instance.process_flow_dict[self.instance.product_dict[product_no].route_id][int(route_no)-1]
+                    mached_machine = self.instance.equ_name_2_info[equ]
+                    pre_product = df.iloc[i-1]['product_id']
+                    if self.check_if_add_ready_time(self.instance,operation,product_no,mached_machine,self.best_assigned_product,self.best_assigned_machine,pre_product):
+                        print("违反约束六-2: ",df.iloc[i]['product_id'],df.iloc[i]['route_No'])
 
 
+    def check_if_add_ready_time(self,instance,operation,product_no,mached_machine,assigned_product,assigned_machine,pre_product):
+        '''
+        :param operation: 当前工序对象
+        :param product_no: 产品id
+        :param product_first_operation: 是否第一道工序
+        :return: true/false
+        '''
 
+        # 情况一：产品工序中第一次出现工序B
+        first_b_route_no = instance.route_flow_first_B[instance.product_dict[product_no].route_id]
+        if operation.route_no == first_b_route_no:
+            # print("情况一  工序B {} 需要准备时间".format(product_no + '-' + str(operation.route_no)))
+            return True
+
+        # 情况二：当前产品存在多次工序B，且其使用机器与上一次使用机器不同(上一次处理工序B时使用机器)
+        pre_b_operation = -1
+        for pf in instance.process_flow_dict[instance.product_dict[product_no].route_id]:
+            if pf == operation:
+                break
+            if pf.name == '工序B':
+               pre_b_operation = pf
+
+        if pre_b_operation == -1:
+            # 工序中第一次出现B
+            print("此工序只出现过一次工序B")
+            return False
+
+        if mached_machine.equ_name != assigned_product[product_no+'-'+str(pre_b_operation.route_no)][2]:
+            # print("情况二  工序B {} 需要准备时间".format(product_no + '-' + str(operation.route_no)))
+            return True
+
+        # 情况三：当前机器加工的产品与当前机器上一次加工的产品不同
+        if mached_machine.equ_name in assigned_machine and len(assigned_machine[mached_machine.equ_name]) >= 2:
+            # pre_product = assigned_machine[mached_machine.equ_name][-2].split('-')    # 最后一个是当前判断工序
+            if product_no != pre_product:
+                # print("情况三  工序B {} 需要准备时间".format(product_no + '-' + str(operation.route_no)))
+                return True
+
+        # 不增加准备时间
+        if mached_machine.equ_name == assigned_product[product_no+'-'+str(pre_b_operation.route_no)][2]:
+            # print("工序B {} 不需要准备时间".format(product_no+'-'+str(operation.route_no)))
+            return False
+        print("第二种情况 工序B {} 不需要准备时间", product_no + '-' + str(operation.route_no))
+        return False
 
 
     def draw_gantt_chart(self,submit_df):
