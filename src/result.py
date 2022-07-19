@@ -78,19 +78,31 @@ class Result:
         # 约束三：每个工序同时只能在一个设备上加工
         # 约束五：以节为单位的工序，必须连续加工
 
-        # 约束六：工序B是否满足准备时间要求
-        # for product, df in submit_df.groupby('product_id'):
-        #     find_first = False
-        #     df = df.sort_values(by=['route_No'])
-        #     for i in range(1, len(df)):
-        #         pre_end_time = df.iloc[i - 1]['end']
-        #         next_start_time = df.iloc[i]['start']
-        #
-        #         for p in self.instance.process_flow_dict[self.instance.product_dict[df.iloc[i - 1]['product_id']].route_id]:
-        #             if p.name == '工序B' and not find_first:   # 该产品第一次出现工序B
-        #                 find_first = True
-        #                 machine_df = submit_df[submit_df['equ_name']==df.iloc[i]['equ_name']]
-        #                 machine_df = machine_df.sort_values(by=['start'])
+        # 约束六：工序B是否满足准备时间要求(1.工序B完成后立即开始工序C；2.工序B准备时间问题)
+        # 1.工序B完成后立即开始工序C
+        for product, df in submit_df.groupby('product_id'):
+            df = df.sort_values(by=['route_No'])
+            for i in range(0,len(df)-1):
+                current_name = self.instance.process_flow_dict[self.instance.product_dict[df.iloc[i]['product_id']].route_id][df.iloc[i]['route_No']-1].name
+                if current_name != '工序B':
+                    continue
+                if df.iloc[i]['end'] != df.iloc[i+1]['start']:
+                    print("违反约束六-1: ",df.iloc[i]['product_id'],df.iloc[i]['route_No'])
+        # 2.工序B准备时间问题
+        process_B_machine = []    # 可以加工工序B的机器列表
+        checked_equ_type = []
+        for product in self.instance.unassign_product:
+            route_obj = self.instance.process_flow_dict[self.instance.product_dict[product].route_id]
+            for route in route_obj:
+                if route.name == '工序B' and route.equ_type not in checked_equ_type:
+                    checked_equ_type.append(route.equ_type)
+                    for obj in self.instance.equ_dict[route.equ_type]:
+                        if obj.equ_name not in process_B_machine:
+                            process_B_machine.append(obj.equ_name)
+
+        for equ,df in submit_df.groupby('equ_name'):
+            df = df.sort_values(by=['start'])
+
 
 
 
@@ -113,4 +125,19 @@ class Result:
         ax.barh(submit_df.product_id, submit_df.duration, left=submit_df.start,color=submit_df.color)
         plt.savefig('../output/调度甘特图.png')
         # plt.show()
+
+if __name__ == "__main__":
+    # 评价指标 - 线上计算一致
+    import pandas as pd
+    # submit_result_file = '../output/目前最高分结果34.csv'
+    submit_result_file = '../output/优化后竟然更低了29.csv'
+    # submit_result_file = '../output/调度结果提交.csv'
+    submit_df = pd.read_csv(submit_result_file)
+
+    operation_C_df = submit_df[submit_df['equ_name']=='Y-2045']
+    all_operation_C_time = operation_C_df['duration'].sum()
+    all_product_finish_time = submit_df['end'].max()
+
+    print(all_operation_C_time,all_product_finish_time,all_operation_C_time/all_product_finish_time)
+
 

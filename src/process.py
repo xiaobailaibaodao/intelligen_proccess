@@ -350,7 +350,7 @@ class ProcessFlow:
 
         # 不增加准备时间
         if mached_machine.equ_name == assigned_product[product_no+'-'+str(pre_b_operation.route_no)][2]:
-            print("工序B {} 不需要准备时间".format(product_no+'-'+str(operation.route_no)))
+            # print("工序B {} 不需要准备时间".format(product_no+'-'+str(operation.route_no)))
             return False
         print("第二种情况 工序B {} 不需要准备时间", product_no + '-' + str(operation.route_no))
         return False

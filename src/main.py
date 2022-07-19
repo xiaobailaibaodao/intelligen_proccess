@@ -28,7 +28,7 @@ def run(dir_path):
 
     # --------结果格式化---------
     algo_result = Result(model)
-    algo_result.format_algo_best_result('../output/调度结果提交.csv')
+    algo_result.format_algo_best_result('../output/调度结果提交-迭代.csv')
     print("success!")
 
 

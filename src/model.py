@@ -44,6 +44,7 @@ class GA:
             all_product_operations += per_job_operations
         self.init_solution(all_product_operations)
         print("初始解构造完成")
+        self.algo_to_best_solution()
 
 
     def init_solution(self,all_product_operations):
@@ -76,23 +77,28 @@ class GA:
 
     def algo_to_best_solution(self):
         # 迭代策略进行搜索
-        iter = 1
+        iter = 0
         while iter <= self.max_iteration:
+            iter += 1
+            print("开始第 {} 此迭代".format(iter))
             # selection operator - tournament approach
             mate_pool = Strategy.selection_operator(self.population,self.select_rate)
 
             while len(mate_pool) < self.population_size:
                 if random.random() < self.pc:
                     # crossover operator
-                    pass
+                    Strategy.crossover_operator(mate_pool,self.instance)
+            if len(mate_pool) > self.population_size:
+                mate_pool = mate_pool[0:self.population_size]
 
-            if random.random() < self.pm:
-                # mutation operator
-                pass
+            # mutation operator
+            Strategy.mutation_operator(mate_pool, self.pm,self.instance)
 
             # update self.population
+            self.population = mate_pool
             # update best solution
-            pass
+            self.update_efficiency_value()
+            print("最优目标函数: {}".format(self.best_obj))
 
 
 
@@ -104,7 +110,10 @@ class GA:
             assigned_machine = {}  # 记录机器已经安排工序  {equ_name:[产品id-工序id....] }
             c_process_time, finish_time = self.decoding_MSOS(chrom,assigned_route_no,assigned_product,assigned_machine)
             eval_cost = c_process_time / finish_time
-            chrom.append(eval_cost)
+            if len(chrom) == 2:
+                chrom.append(eval_cost)
+            else:
+                chrom[2] = eval_cost
             if eval_cost > self.best_obj:
                 self.best_obj = eval_cost
                 self.best_chrom = chrom
@@ -138,7 +147,7 @@ class GA:
         # 加入工序B准备时间
 
 
-        # 计算全部机器最长加工时间,以及工序C在对应设备上的 累计 加工时间
+        # 计算全部产品完工时间,以及工序C在对应设备上的 累计 加工时间
         finish_time = -1
         c_process_time = 0
         for o in assigned_product:
@@ -150,7 +159,7 @@ class GA:
             if finish_time == -1:
                 finish_time = assigned_product[o][1]
                 continue
-            if finish_time > assigned_product[o][1]:
+            if finish_time < assigned_product[o][1]:
                 finish_time = assigned_product[o][1]
 
         return c_process_time,finish_time
