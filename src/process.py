@@ -9,6 +9,7 @@ Create on 2022/6/24 16:52
 
 import re
 import numpy as np
+import random
 
 class ProcessFlow:
 
@@ -89,21 +90,56 @@ class ProcessFlow:
         else:
             before_operation_end_time = assigned_product[product_no + '-' + str(operation.before_node)][1]
         if special_option:
-            # 工序B
+            # 工序B(工序C只有一台机器可选)
             self.decision_B_start_time(instance,operation,product_no,mached_machine,process_time,assigned_product,assigned_machine,chrom,before_operation_end_time,assigned_route_no)
         else:
             # 非工序B
-            self.decision_nonB_start_time(prop_id,mached_machine,process_time,assigned_product,assigned_machine,before_operation_end_time)
+            self.decision_nonB_start_time(instance,prop_id,mached_machine,process_time,assigned_product,assigned_machine,before_operation_end_time,operation)
 
 
-    def decision_nonB_start_time(self,prop_id,mached_machine,process_time,assigned_product,assigned_machine,before_operation_end_time):
+    def decision_nonB_start_time(self,instance,prop_id,mached_machine,process_time,assigned_product,assigned_machine,before_operation_end_time,operation):
         '''
         决策非B工序的加工开始时刻,取 产品流程、机器可用时间 两者最大值
         '''
-        machine_availabel_time = self.decision_operation_time(mached_machine,before_operation_end_time,process_time,assigned_product,assigned_machine)
-        # 更新资源数据
-        assigned_product[prop_id][0] = machine_availabel_time
-        assigned_product[prop_id][1] = machine_availabel_time + process_time
+        if operation.name == '工序D' and random.random() < 1:
+            candidate_machine_available_dict = self.candidate_machine_insert_position(instance,operation,mached_machine,assigned_machine,assigned_product)
+            unit_num = instance.product_dict[prop_id].product_num
+            machine_availabel_time, candidate_machine = self.decision_operation_time2(mached_machine,before_operation_end_time,process_time,assigned_product,assigned_machine,candidate_machine_available_dict,unit_num)
+            # 更新资源数据
+            if len(candidate_machine) == 0:
+                assigned_product[prop_id][0] = machine_availabel_time
+                assigned_product[prop_id][1] = machine_availabel_time + process_time
+            else:
+                # 更新工序D匹配机器资源
+                pass
+                # 更新工序D候选机器资源情况
+        else:
+            machine_availabel_time = self.decision_operation_time(mached_machine, before_operation_end_time,process_time, assigned_product, assigned_machine)
+            # 更新资源数据
+            assigned_product[prop_id][0] = machine_availabel_time
+            assigned_product[prop_id][1] = machine_availabel_time + process_time
+
+
+    def decision_operation_time2(self, mached_machine, before_operation_end_time, process_time, assigned_product,assigned_machine,candidate_machine_available_dict,unit_num):
+        machine_availabel_time = -1
+        candidate_machine = {}
+        if len(assigned_machine[mached_machine.equ_name]) == 1:  # 匹配机器只有当前工序加工计划,还未加工其它工艺
+            machine_availabel_time = before_operation_end_time
+        else:
+            sort_time_machine = self.machine_process_situation(assigned_machine, mached_machine, assigned_product)
+            machend_machine_name = mached_machine.equ_name
+            mid_available_position,paralles_plan = self.candidate_insert_position2(candidate_machine_available_dict,sort_time_machine,before_operation_end_time,process_time,machend_machine_name,unit_num)
+
+            # 匹配优先级(从高到低)：1.当前机器中第一个工序左边；2.中间；3.当前机器最后
+            if sort_time_machine[0][1][0] >= process_time and sort_time_machine[0][1][0] - process_time >= before_operation_end_time:   # todo 优化点一
+                machine_availabel_time = before_operation_end_time
+            elif mid_available_position != -1:
+                machine_availabel_time = mid_available_position
+                candidate_machine = paralles_plan
+            else:
+                # 如果都不能匹配，安排在机器最后
+                machine_availabel_time = max(sort_time_machine[-1][1][1], before_operation_end_time)
+        return machine_availabel_time,candidate_machine
 
 
     def decision_operation_time(self,mached_machine,before_operation_end_time,process_time,assigned_product,assigned_machine):
@@ -308,6 +344,98 @@ class ProcessFlow:
                 mid_available_position.append(machine_end_time)
             end = s[1][1]
         return mid_mached,mid_available_position
+
+
+    def candidate_insert_position2(self,candidate_machine_available_dict,sort_time_machine,before_operation_end_time,process_time,machend_machine_name,unit_num):
+        '''决策此刻是否可并行或穿行安排生产,以及如何生产'''
+        end = -1
+        paralles_plan = {}    # {equ_name:节数量,......}
+        for s in sort_time_machine:
+            if end == -1:
+                end = s[1][1]
+                continue
+
+            if end >= before_operation_end_time:
+                if s[1][0] - end < float(self.process_duration[0])*60:     # 如果中件时刻长度不足 一节 加工时长 则不可能并行
+                    continue
+
+                if s[1][0] - end >= process_time:
+                    paralles_plan[machend_machine_name] = unit_num
+                    return end,paralles_plan
+
+                current_t = end
+                while current_t <= s[1][0]-float(self.process_duration[0])*60:    # 循环时间节点 一次判断
+                    other_machine_tm = self.get_other_machine_time(candidate_machine_available_dict,current_t,float(self.process_duration[0])*60)
+                    if len(other_machine_tm) == 0:
+                        current_t += 1
+                        continue
+                    # 分配加工节点
+                    mached_machine_unit,_ = divmod(s[1][0]-current_t,float(self.process_duration[0])*60)   # 工序指定机器分配节点数
+                    unassign_unit_num = unit_num - mached_machine_unit
+                    choose_other_machine,deal_flag = self.set_parallel_machine(unassign_unit_num,other_machine_tm)
+                    if deal_flag:
+                        paralles_plan[machend_machine_name] = mached_machine_unit
+                        paralles_plan = dict(paralles_plan,**choose_other_machine)
+                        return current_t,paralles_plan
+                    current_t += 1
+        return end,paralles_plan
+
+
+    def set_parallel_machine(self,unit_num,other_machine_tm):
+        '''根据可用时间,从小到大进行安排'''
+        sorted_other_machine_tm = sorted(other_machine_tm.items(), key=lambda x: x[1][0])
+        choose_other_machine = {}
+        deal_flag = False
+        for l in sorted_other_machine_tm:
+            choose_other_machine[l[0]] = min(l[1][0],unit_num)
+            unit_num = unit_num - l[1][0]
+            if unit_num <= 0:
+                deal_flag = True
+                break
+        return choose_other_machine,deal_flag
+
+
+    def get_other_machine_time(self,candidate_machine_available_dict,monment,per_unit_time):
+        '''其它候选可用机器 至少在此刻 拥有处理 一节 的能力'''
+        other_machine_tm = {}
+        for equ_name in candidate_machine_available_dict.keys():
+            for s,e in candidate_machine_available_dict[equ_name]:
+                if monment >= s and monment < e and monment + per_unit_time <= e:
+                    u,_ = divmod(e-monment,per_unit_time)   # 可处理 节 数
+                    other_machine_tm.setdefault(equ_name,[]).append(u)
+                    break
+        return other_machine_tm
+
+    def candidate_machine_insert_position(self,instance,operation,mached_machine,assigned_machine,assigned_product):
+        '''
+        处理工序D
+        该机器可插入时间点,只记录中间可插入位置
+        工序为 节 的拆分判断，拆分贪心拆
+        '''
+        candidate_machine_available_dict = {}     # 遍历工序D每台可用机器可用时刻  {type_name:[[可用起始时刻，截止时刻],[].....]}
+        for m in instance.equ_dict[operation.equ_type]:
+            if m == mached_machine:
+                continue
+
+            if m.equ_name not in assigned_machine:
+                candidate_machine_available_dict[m.equ_name] = [[0,np.inf]]
+                continue
+
+            candidate_machine_available_dict[m.equ_name] = []
+            machine_time_dict = {}
+            for o in assigned_machine[mached_machine.equ_name]:
+                machine_time_dict[o] = assigned_product[o]
+            inner_sort_time_machine = sorted(machine_time_dict.items(), key=lambda x: x[1][0])
+
+            for i in range(len(inner_sort_time_machine)):
+                if i == 0 and inner_sort_time_machine[i][1][0] > 0:
+                    candidate_machine_available_dict[m.equ_name].append([0,inner_sort_time_machine[i][1][0]])
+                    continue
+                if inner_sort_time_machine[i][1][0] - inner_sort_time_machine[i-1][1][1] > 0:
+                    candidate_machine_available_dict[m.equ_name].append([inner_sort_time_machine[i-1][1][1],inner_sort_time_machine[i][1][0]])
+                if i == len(inner_sort_time_machine)-1:
+                    candidate_machine_available_dict[m.equ_name].append([inner_sort_time_machine[i][1][1],np.inf])
+        return candidate_machine_available_dict
 
 
     def check_if_add_ready_time(self,instance,operation,product_no,mached_machine,assigned_product,assigned_machine,pre_product):
